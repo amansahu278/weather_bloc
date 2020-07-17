@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:weather_bloc/bloc/bloc.dart';
+import 'package:weather_bloc/models/api_response.dart';
 import 'package:weather_bloc/models/weather.dart';
 
 
@@ -12,7 +15,14 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _counter = 0;
+  final weatherBloc = WeatherBloc(InitialWeatherState());
+
+  @override
+  void dispose() {
+    // TODO: implement dispose
+    super.dispose();
+    weatherBloc.close();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +30,27 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Text(widget.title),
       ),
-      body: buildInitialInput(),
+      body: BlocProvider(
+        create: (context) => weatherBloc,
+        child: Container(
+          padding: EdgeInsets.symmetric(vertical: 10),
+          alignment: Alignment.center,
+          child: BlocBuilder<WeatherBloc, WeatherState>(
+              bloc: weatherBloc,
+              builder: (context, state){
+                if(state is InitialWeatherState){
+                  return buildInitialInput();
+                } else if ( state is WeatherLoading){
+                  return buildLoading();
+                } else if (state is WeatherLoaded){
+                  return buildColumnWithData(state.response);
+                } else {
+                  return Container();
+                }
+              }
+          ),
+        ),
+      ),
     );
   }
   Widget buildInitialInput() {
@@ -36,8 +66,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   // Builds widgets from the starter UI with custom weather data
-  Column buildColumnWithData(Weather weather) {
-    return Column(
+  Column buildColumnWithData(ApiResponse<Weather> response) {
+    Weather weather = response.data;
+    return response.error ? Column(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: <Widget>[
+        Text(
+          "Error occured: ${response.errorMessage}",
+          style: TextStyle(
+            fontSize: 10,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        CityInputField(),
+      ],
+    ): Column(
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: <Widget>[
         Text(
@@ -85,6 +128,7 @@ class _CityInputFieldState extends State<CityInputField> {
   }
 
   void submitCityName(String cityName) {
-
+    final weatherBloc = BlocProvider.of<WeatherBloc>(context);
+    weatherBloc.add(GetWeather(cityName));
   }
 }
